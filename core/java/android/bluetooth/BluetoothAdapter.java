@@ -783,7 +783,7 @@ public final class BluetoothAdapter {
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH)
     @AdapterState
-    public int getState() {
+    public int getState() {        
         try {
             synchronized(mManagerCallback) {
                 if (mService != null)
@@ -879,7 +879,7 @@ public final class BluetoothAdapter {
      *         immediate error
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH_ADMIN)
-    public boolean enable() {
+    public boolean enable() {        
         int state = STATE_OFF;
         if (isEnabled() == true){
             if (DBG) Log.d(TAG, "enable(): BT is already enabled..!");
@@ -928,7 +928,7 @@ public final class BluetoothAdapter {
      *         immediate error
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH_ADMIN)
-    public boolean disable() {
+    public boolean disable() {        
         try {
             return mManagerService.disable(true);
         } catch (RemoteException e) {Log.e(TAG, "", e);}
@@ -945,7 +945,7 @@ public final class BluetoothAdapter {
      *         immediate error
      * @hide
      */
-    public boolean disable(boolean persist) {
+    public boolean disable(boolean persist) {        
 
         try {
             return mManagerService.disable(persist);
@@ -1189,7 +1189,7 @@ public final class BluetoothAdapter {
      * @return true on success, false on error
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH_ADMIN)
-    public boolean startDiscovery() {
+    public boolean startDiscovery() {        
         if (getState() != STATE_ON) return false;
         try {
             synchronized(mManagerCallback) {
@@ -1407,7 +1407,7 @@ public final class BluetoothAdapter {
      * @return unmodifiable set of {@link BluetoothDevice}, or null on error
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH)
-    public Set<BluetoothDevice> getBondedDevices() {
+    public Set<BluetoothDevice> getBondedDevices() {        
         if (getState() != STATE_ON) {
             return toDeviceSet(new BluetoothDevice[0]);
         }
@@ -1459,7 +1459,7 @@ public final class BluetoothAdapter {
      * {@link BluetoothProfile#STATE_DISCONNECTING}
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH)
-    public int getProfileConnectionState(int profile) {
+    public int getProfileConnectionState(int profile) {        
         if (getState() != STATE_ON) return BluetoothProfile.STATE_DISCONNECTED;
         try {
             synchronized(mManagerCallback) {
@@ -1581,7 +1581,7 @@ public final class BluetoothAdapter {
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH)
     public BluetoothServerSocket listenUsingInsecureRfcommWithServiceRecord(String name, UUID uuid)
-            throws IOException {
+            throws IOException {        
         return createNewRfcommSocketAndRecord(name, uuid, false, false);
     }
 
@@ -1754,6 +1754,117 @@ public final class BluetoothAdapter {
         return listenUsingL2capOn(port, false, false);
     }
 
+
+    /**
+     * Construct an insecure L2CAP server socket.
+     * Call #accept to retrieve connections to this socket.
+     * <p>To auto assign a port without creating a SDP record use
+     * {@link SOCKET_CHANNEL_AUTO_STATIC_NO_SDP} as port number.
+     * @param port    the PSM to listen on
+     * @return An L2CAP BluetoothServerSocket
+     * @throws IOException On error, for example Bluetooth not available, or
+     *                     insufficient permissions.
+     * @hide
+     */
+    public BluetoothServerSocket listenUsingInsecureL2capOn(int port) throws IOException {
+        BluetoothServerSocket socket = new BluetoothServerSocket(
+                BluetoothSocket.TYPE_L2CAP, false, false, port, false, false);
+        int errno = socket.mSocket.bindListen();
+        if(port == SOCKET_CHANNEL_AUTO_STATIC_NO_SDP) {
+            socket.setChannel(socket.mSocket.getPort());
+        }
+        if (errno != 0) {
+            //TODO(BT): Throw the same exception error code
+            // that the previous code was using.
+            //socket.mSocket.throwErrnoNative(errno);
+            throw new IOException("Error: " + errno);
+        }
+        return socket;
+
+    }
+
+    /**
+     * Create a client side Message Access Profile Service Record.
+     * Create the record once, and reuse it for all connections.
+     * If changes to a record is needed remove the old record using {@link removeSdpRecord}
+     * and then create a new one.
+     * WARNING: This API requires removeSdpRecord() to be called, to avoid leaking resources!
+     *          A second call to this function - either from two different apps or from the
+     *          same app, without first calling removeSdpRecord() - will make the device
+     *          break the Bluetooth spec, which could lead to severe IOP issues.
+     * @param serviceName   The textual name of the service
+     * @param rfcommChannel The RFCOMM channel that clients can connect to
+     *                      (obtain from BluetoothServerSocket)
+     * @param l2capPsm      The L2CAP PSM channel that clients can connect to
+     *                      (obtain from BluetoothServerSocket)
+     *                      Supply -1 to omit the L2CAP PSM from the record.
+     * @param version       The Profile version number (As specified in the Bluetooth
+     *                      MAP specification)
+     * @param features      The feature bit mask (As specified in the Bluetooth
+     *                       MAP specification)
+     * @return a handle to the record created. The record can be removed again
+     *          using {@link removeSdpRecord}(). The record is not linked to the
+     *          creation/destruction of BluetoothSockets, hence SDP record cleanup
+     *          is a separate process.
+     *          returns -1 if an error occure and the record was not created.
+     * @hide
+     */
+    public int createMapMnsSdpRecord(String serviceName, int rfcommChannel,
+            int l2capPsm, int version, int features) {
+        try {
+            return mService.createMapMnsSdpRecord(serviceName, rfcommChannel,
+                    l2capPsm, version, features);
+        } catch (RemoteException e) {
+            Log.e(TAG, "createMapMnsSdpRecord: ", e);
+        }
+        return -1;
+    }
+
+    /**
+     * Create a client side Phonebook Access Profile Service Record.
+     * Create the record once, and reuse it for all connections.
+     * If changes to a record is needed remove the old record using {@link removeSdpRecord}
+     * and then create a new one.
+     * WARNING: This API requires removeSdpRecord() to be called, to avoid leaking resources!
+     *          A second call to this function - either from two different apps or from the
+     *          same app, without first calling removeSdpRecord() - will make the device
+     *          break the Bluetooth spec, which could lead to severe IOP issues.
+     * @param serviceName   The textual name of the service
+     * @param version       The Profile version number (As specified in the Bluetooth
+     *                      PBAP specification)
+     * @return a handle to the record created. The record can be removed again
+     *          using {@link removeSdpRecord}(). The record is not linked to the
+     *          creation/destruction of BluetoothSockets, hence SDP record cleanup
+     *          is a separate process.
+     *          returns -1 if an error occure and the record was not created.
+     * @hide
+     */
+    public int createPbapPceSdpRecord(String serviceName, int version) {
+        try {
+            return mService.createPbapPceSdpRecord(serviceName, version);
+        } catch (RemoteException e) {
+            Log.e(TAG, "createPbapPceSdpRecord: ", e);
+        }
+        return -1;
+    }
+
+    /**
+     * Remove a SDP record created using createSdpRecord().
+     * This function shall be called before a new call to createSdpRecord for the same record
+     * type can be made, unless the record type created supports multiple instances.
+     * @param recordHandle handle of the record to remove - provided by createSdpRecord()
+     * @return true if success
+     * @hide
+     */
+    public boolean removeSdpRecord(int recordHandle){
+        try {
+            return mService.removeSdpRecord(recordHandle);
+        } catch (RemoteException e) {
+            Log.e(TAG, "removeSdpRecord: ", e);
+        }
+        return false;
+    }
+
     /**
      * Read the local Out of Band Pairing Data
      * <p>Requires {@link android.Manifest.permission#BLUETOOTH}
@@ -1840,6 +1951,9 @@ public final class BluetoothAdapter {
         } else if (profile == BluetoothProfile.SAP) {
             BluetoothSap sap = new BluetoothSap(context, listener);
             return true;
+        } else if (profile == BluetoothProfile.HID_DEVICE) {
+            BluetoothHidDevice hidd = new BluetoothHidDevice(context, listener);
+            return true;
         } else {
             return false;
         }
@@ -1911,6 +2025,10 @@ public final class BluetoothAdapter {
             case BluetoothProfile.SAP:
                 BluetoothSap sap = (BluetoothSap)proxy;
                 sap.close();
+                break;
+            case BluetoothProfile.HID_DEVICE:
+                BluetoothHidDevice hidd = (BluetoothHidDevice) proxy;
+                hidd.close();
                 break;
         }
     }
