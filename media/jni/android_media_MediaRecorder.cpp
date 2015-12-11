@@ -40,10 +40,6 @@
 
 #include <system/audio.h>
 #include <android_runtime/android_view_Surface.h>
-<<<<<<< HEAD
-=======
-#include "SeempLog.h"
->>>>>>> 32ed073... MediaRecorder: Add pause interface
 
 // ----------------------------------------------------------------------------
 
